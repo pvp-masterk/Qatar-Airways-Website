@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Profile Editor</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #36393f;
+            color: white;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #2f3136;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .profile {
+            display: none;
+        }
+        .login-btn {
+            background: #5865F2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            display: block;
+            margin: 20px auto;
+        }
+        .avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            margin-right: 20px;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            background: #40444b;
+            border: 1px solid #202225;
+            border-radius: 4px;
+            color: white;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        button {
+            background: #5865F2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .logout-btn {
+            background: #ed4245;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Discord Profile Editor</h1>
+        
+        <div id="login-section">
+            <p>Connect your Discord account to create a temporary profile:</p>
+            <button class="login-btn" id="discord-login">Login with Discord</button>
+        </div>
+        
+        <div id="profile-section" class="profile">
+            <div class="user-info">
+                <img id="user-avatar" class="avatar" src="" alt="Avatar">
+                <div>
+                    <h2 id="username">Username</h2>
+                    <button id="logout-btn" class="logout-btn">Logout</button>
+                </div>
+            </div>
+            
+            <form id="profile-form">
+                <div class="form-group">
+                    <label for="display-name">Display Name</label>
+                    <input type="text" id="display-name" name="displayName">
+                </div>
+                
+                <div class="form-group">
+                    <label for="bio">Bio</label>
+                    <textarea id="bio" name="bio"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="temporary" name="temporary" checked>
+                        Temporary Profile (clears when browser closes)
+                    </label>
+                </div>
+                
+                <button type="submit">Save Profile</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Discord OAuth2 Configuration
+        const DISCORD_CLIENT_ID = '1388545730993717258'; // Replace with your actual client ID
+        const DISCORD_REDIRECT_URI = window.location.href.includes('localhost') 
+            ? 'http://localhost:8000' 
+            : 'YOUR_PRODUCTION_URL'; // Must match your Discord app settings
+        const DISCORD_SCOPES = ['identify'];
+        
+        // DOM Elements
+        const loginSection = document.getElementById('login-section');
+        const profileSection = document.getElementById('profile-section');
+        const discordLoginBtn = document.getElementById('discord-login');
+        const logoutBtn = document.getElementById('logout-btn');
+        const profileForm = document.getElementById('profile-form');
+        
+        // Check for existing session on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            
+            if (code) {
+                // We came back from Discord OAuth
+                handleDiscordCallback(code);
+            } else if (localStorage.getItem('discordProfile')) {
+                // We have a stored profile
+                loadProfile();
+            }
+        });
+        
+        // Discord Login
+        discordLoginBtn.addEventListener('click', () => {
+            const authUrl = `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(DISCORD_REDIRECT_URI)}&response_type=code&scope=${DISCORD_SCOPES.join('%20')}`;
+            window.location.href = authUrl;
+        });
+        
+        // Logout
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('discordProfile');
+            localStorage.removeItem('customProfile');
+            window.location.href = DISCORD_REDIRECT_URI;
+        });
+        
+        // Save Profile
+        profileForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const customProfile = {
+                displayName: e.target.elements.displayName.value,
+                bio: e.target.elements.bio.value,
+                isTemporary: e.target.elements.temporary.checked
+            };
+            
+            if (customProfile.isTemporary) {
+                sessionStorage.setItem('customProfile', JSON.stringify(customProfile));
+            } else {
+                localStorage.setItem('customProfile', JSON.stringify(customProfile));
+            }
+            
+            alert('Profile saved!');
+            loadProfile(); // Refresh the display
+        });
+        
+        // Handle Discord OAuth callback
+        async function handleDiscordCallback(code) {
+            // In a real app, you'd exchange the code for a token via your server
+            // For this client-only demo, we'll simulate it by storing the code
+            
+            try {
+                // Normally you would fetch user data from Discord's API here
+                // For simplicity, we'll just store the code as the "token"
+                const profile = {
+                    id: 'simulated_' + Math.random().toString(36).substring(2),
+                    username: 'DiscordUser',
+                    avatar: null,
+                    discriminator: '1234',
+                    fetchedAt: new Date().toISOString(),
+                    authCode: code
+                };
+                
+                localStorage.setItem('discordProfile', JSON.stringify(profile));
+                window.location.href = DISCORD_REDIRECT_URI; // Remove code from URL
+            } catch (error) {
+                console.error('Error handling Discord callback:', error);
+                alert('Failed to login with Discord');
+            }
+        }
+        
+        // Load and display profile
+        function loadProfile() {
+            const discordProfile = JSON.parse(localStorage.getItem('discordProfile'));
+            if (!discordProfile) return;
+            
+            let customProfile = JSON.parse(localStorage.getItem('customProfile')) || 
+                               JSON.parse(sessionStorage.getItem('customProfile')) || 
+                               { displayName: '', bio: '', isTemporary: true };
+            
+            // Update UI
+            document.getElementById('user-avatar').src = discordProfile.avatar 
+                ? `https://cdn.discordapp.com/avatars/${discordProfile.id}/${discordProfile.avatar}.png`
+                : 'https://cdn.discordapp.com/embed/avatars/0.png';
+            
+            document.getElementById('username').textContent = 
+                `${discordProfile.username}#${discordProfile.discriminator}`;
+            
+            document.getElementById('display-name').value = customProfile.displayName;
+            document.getElementById('bio').value = customProfile.bio;
+            document.getElementById('temporary').checked = customProfile.isTemporary;
+            
+            // Switch views
+            loginSection.style.display = 'none';
+            profileSection.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
